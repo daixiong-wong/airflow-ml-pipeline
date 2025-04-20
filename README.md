@@ -18,7 +18,7 @@ The DAG is generalized as a template to dynamically generate workflows for diffe
 
 The DAG structure used for this project is illustrated below:
 
-![DAG Diagram](img/dag-diagram)
+![DAG Outline](img/DAG_outline.png)
 
 ### Setting Up Airflow's Components
 The Airflow setup includes:
