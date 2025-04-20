@@ -4,6 +4,8 @@
 
 This project demonstrates the development of an advanced data pipeline to support a Machine Learning team. The goal is to create a pipeline for three fictitious Mobility-As-A-Service vendors—**Alitran**, **Easy Destiny**, and **ToMyPlaceAI**—to preprocess and validate data, train machine learning models, and evaluate their deployment suitability based on key metrics. By continuously training and assessing the models, each vendor can improve their ride duration estimation services.
 
+![Project Outline](img/airflow-ml-pipeline.png)
+
 ---
 
 ## Overview
