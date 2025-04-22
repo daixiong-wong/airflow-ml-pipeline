@@ -1,4 +1,5 @@
 {
+  "expectation_suite_name": "de-expectation-suite",
   "expectations": [
     {
       "expectation_type": "expect_column_values_to_be_between",
