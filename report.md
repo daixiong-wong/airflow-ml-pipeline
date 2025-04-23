@@ -80,7 +80,7 @@ To implement this, the expectation suite JSON file (de-expectation-suite.json) w
 This expectation suite was integrated into the DAG using the `GreatExpectationsOperator`, ensuring that data quality checks were rigorously applied before proceeding to downstream tasks. 
 The validation guarantees that models are only trained on data that adheres to the defined business rules.
 
-The GreatExpectationsOperator was configured within the DAG script for easy_destiny as shown below:
+The GreatExpectationsOperator was configured within the DAG script for `easy_destiny` as shown below:
 
 ```python
 
@@ -119,11 +119,10 @@ If the validation fails, the pipeline stops, preventing the training of models o
 The pipeline includes a task to train a **linear regression model** for predicting trip duration, followed by performance evaluation using **Root-Mean-Square Error (RMSE)**. 
 The TaskFlow API was used to configure this task, ensuring the performance metric was returned for subsequent tasks.
 
-The train_and_evaluate() function, configured within the DAG script for easy_destiny, is implemented as follows:
+The `train_and_evaluate()` function, configured within the DAG script for `easy_destiny`, is implemented as follows:
 
 ```python
 
-# This task trains and evaluates a regression model for a vendor
 def train_and_evaluate(bucket_name: str, vendor_name: str):
   
     # Define the path to the datasets stored in the S3 bucket.
@@ -171,7 +170,6 @@ The `_is_deployable()` function and the corresponding `BranchPythonOperator` are
 
 ```python
 
-# Callable to be used by branch operator to determine whether to deploy a model
 def _is_deployable(ti):
 
     # Retrieve the performance metric from the `train_and_evaluate` task
@@ -212,10 +210,10 @@ This branching mechanism ensures the pipeline’s flexibility and responsiveness
 
 #### Defining the DAG Dependencies
 
-Task dependencies within the DAG are defined using the >> operator to specify the order of execution. 
+Task dependencies within the DAG are defined using the `>>` operator to specify the order of execution. 
 This ensures that tasks are executed in a sequential and logical manner, creating a clear execution flow.
 
-Below is the definition of DAG dependencies for easy_destiny:
+Below is the definition of DAG dependencies for `easy_destiny`:
 
 ```python
 
@@ -232,6 +230,14 @@ Below is the definition of DAG dependencies for easy_destiny:
 )
 ```
 
+The `start_task` acts as the entry point of the DAG without performing any operations.
+This is followed by the `data_quality_task` which performs data quality checks to ensure that the input data meets predefined criteria.
+Once the data is validated, the `train_and_evaluate` task trains a regression model and evaluates its performance using RMSE.
+Next, the `is_deployable_task` task evaluates the performance of the model and directs the workflow to either the `deploy()` or `notify()` task.
+If the model's performance satisfies the condition, the `deploy()` task will execute the deployment process.
+Otherwise, the workflow will be directed to the `notify()` task which will send a notification, signaling that deployment is not possible.
+Lastly. the `end_task` task marks the conclusion of the workflow, ensuring the DAG completes successfully regardless of the branch taken.
+
 **Key Highlights:**
 - **Sequential Flow**: Tasks are connected using the `>>` operator to ensure orderly execution.
 - **Branching Logic**: The `is_deployable_task` determines whether the pipeline flows to the `deploy()` task or the `notify()` task.
@@ -245,56 +251,125 @@ This setup clearly defines the execution order and conditional pathways, ensurin
 
 #### Avoiding Code Duplication
 
-To enhance scalability and maintainability, dynamic DAGs were implemented. 
-The approach eliminated repetitive code by using Jinja templates to generate DAGs with configurable parameters.
+To support additional vendors, **To My Place AI** and **Alitran**, dynamic DAG generation was implemented to avoid repeating similar code. 
+The DAG previously developed for **Easy Destiny** served as a foundation for creating a reusable template using the **Jinja** templating engine. 
+This approach allowed for efficient adaptation of the DAG to multiple vendors with minimal modifications.
 
 #### Creating the Template File
 
-The DAG script was modified to use Jinja templates, replacing hardcoded values like DAG name (`model_trip_duration_easy_destiny`) 
-and vendor name (`easy_destiny`) with placeholders (`{{ dag_name }}` and `{{ vendor_name }}`).
+Copy the contents of the existing `src/model_trip_duration_easy_destiny.py` file into a new file named `src/templates/template.py`.
+In the `template.py` file, all occurrences of the DAG name `model_trip_duration_easy_destiny` were replaced with the Jinja template `{{ dag_name }}`.
+Similarly, all occurrences of the vendor name `easy_destiny` were replaced with the Jinja template `{{ vendor_name }}`.
+
+By leveraging the Jinja templating engine, the DAG template retained all functionality while allowing the DAG name and vendor name to be parameterized. 
+This solution streamlined the creation of pipelines for To My Place AI and Alitran, ensuring consistency and reducing redundancy across the DAGs.
 
 #### Creating the Configuration Files
 
-JSON configuration files were created to specify template variables for each DAG.
+To generate DAGs dynamically using the created template, configuration files were prepared to provide vendor-specific values. 
+Each configuration file represents the variables required for a single DAG, defined as key-value pairs corresponding to the template variables.
 
-- config_easy_destiny.json
-  
-  ```JSON
-  {
-  "dag_name": "model_trip_duration_easy_destiny",
-  "vendor_name": "easy_destiny"
-  }
-  ```
+For the three vendors—`easy_destiny`, `alitran`, and `to_my_place_ai`—separate configuration files were created in the folder `src/templates/dag_configs`. These files were named:
 
-Similar configurations were created for `alitran` and `to_my_place_ai`.
+- `config_easy_destiny.json`
+- `config_alitran.json`
+- `config_to_my_place_ai.json`
+
+Exmaple of the configuration file for easy_destiny:
+
+```JSON
+{
+"dag_name": "model_trip_duration_easy_destiny",
+"vendor_name": "easy_destiny"
+}
+```
+
+- Similar configurations were created for `alitran` and `to_my_place_ai`.
 
 #### Generating the DAGs
 
-With the template and configurations ready, the following command was used to generate the DAGs dynamically.
+With the template and configuration files prepared, the next step involved generating the dynamic DAGs. 
+The generation of DAG files is automated using the script `generate_dags.py`. 
+This script iterates over the configuration files and combines them with the Jinja template to produce vendor-specific DAGs.
+
+The `main()` function orchestrates the DAG generation process by reading the template file, iterating through configuration files, and rendering the DAGs. 
+Below is the implementation:
+
+```python
+
+def main():
+
+    with open("./template.py", "r", encoding="utf-8") as file:
+        unsafe_template_str = file.read()
+
+    # Define the folder containing configuration files
+    folder_configs = Path("./dag_configs/")
+    print(f"folder_configs {folder_configs}")
+    
+    # Define the directory for the generated DAG files
+    dags_dir = "./../dags"
+    
+    # Iterate over all JSON files matching the pattern "config_*.json"
+    for path_config in folder_configs.glob("config_*.json"):
+        with open(path_config, "r", encoding="utf-8") as file:
+            config = json.load(file)
+
+        # Protect undefined Jinja expressions in the template file
+        template_str = protect_undefineds(unsafe_template_str, config)
+        
+        # Define the output filename for the generated DAG
+        filename = f"{dags_dir}/{config['dag_name']}.py"
+
+        content = Template(template_str).render(config)
+        
+        with open(filename, mode="w", encoding="utf-8") as file:
+            file.write(content)
+            print(f"Created {filename} from config: {path_config.name}...")
+```
+
+**Key Highlights:**
+- **Template Loading**: Reads the template file and stores it as a string.
+- **Iterative Processing**: Processes each JSON configuration file to render the final DAG content.
+
+With the `generate_dags.py` script defined, the following command was used to generate the DAGs dynamically.
 
 ```bash
 cd src/templates
 python3 ./generate_dags.py
 ```
 
-The generated DAGs were stored in the `src/dags/` folder.
+As a result, three DAG files were generated in the `src/dags/` folder, one for each vendor
+
+#insert_image
 
 ---
 
 ### 6. Running the DAGs with Airflow
 
-The DAGs folder was synchronized with the DAGs Bucket using:
+To deploy the dynamically generated DAGs, the src/dags folder was synchronized with the DAGs Bucket using:
 
 ```bash
 cd ../..
 aws s3 sync src/dags s3://<DAGS-BUCKET>/dags
 ```
 
-After refreshing the Airflow UI, the DAGs were toggled and executed. The results were as follows:
+After the DAGs were copied to the bucket, all three DAGs will be listed in the Airflow UI. Toggle the DAGs to executed it. 
 
-- **model_trip_duration_alitran**: it will notify the model was not deployed.
-- **model_trip_duration_easy_destiny**: it will deploy the model.
-- **model_trip_duration_to_my_place_ai**: it will fail the checkpoint in Great Expectations.
+#insert_image of Airflow UI with the three DAGs
+
+The results were as follows:
+
+- **model_trip_duration_alitran**: This DAG notified that the model was not deployed due to unsatisfactory performance.
+- **model_trip_duration_easy_destiny**: Successfully deployed the model as it met the performance criteria.
+- **model_trip_duration_to_my_place_ai**: Failed the data quality checkpoint established by Great Expectations, resulting in the DAG terminating successfully with validation failure.
+
+> Note: Run the DAGs sequentially to ensure smooth execution.
+> This minimizes potential retries in the Great Expectations task, which requires access to documentation files and can experience conflicts when multiple DAGs attempt to access them concurrently.
+
+#insert_image Include a snippet showing the Airflow UI with the DAGs toggled and their statuses.
+
+The DAG model_trip_duration_to_my_place_ai was anticipated to "fail successfully," as the data did not meet the validation requirements during the quality check process. 
+This design demonstrated the robustness of the pipeline in handling invalid data appropriately.
 
 ---
 
