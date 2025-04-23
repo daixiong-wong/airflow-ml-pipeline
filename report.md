@@ -14,11 +14,17 @@ Descriptions of the tasks that constitute the DAG:
 - `is_deployable`: decides whether to deploy a model based on the model performance.
 - `deploy`: prints a deployment message to simulate the deployment process of the model.
 - `notify`: prints a notification message to simulate the notification for a low-performance model.
-- `end`: an empty task marking the end of the DAG. It doesn't include any behavior and will be executed with the DummyOperator.
+- `end`: an empty task marking the end of the DAG. It doesn't include any behavior and will be executed with the `DummyOperator`.
 
 ---
 
 ### 2. Setting Up Airflow's Components
+
+**Launch EC2 instance**
+
+**Apache Airflow Web Server**
+
+**Create S3 buckets**
 
 ---
 
