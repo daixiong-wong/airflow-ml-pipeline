@@ -23,32 +23,95 @@ Descriptions of the tasks that constitute the DAG:
 This section details the essential steps to prepare the environment for running Apache Airflow. 
 The setup includes launching an EC2 instance, creating S3 buckets, and configuring the Apache Airflow Web Server.
 
-**EC2 instance**
+#### EC2 instance
 
 EC2 instance was launched using the AWS Management Console with the following steps:
 
-1. Navigate to the AWS Management Console EC2 service and choose **Launch Instance**
+**1. Navigate to the AWS Management Console EC2 service and choose Launch Instance**
 
-   #insert_image
+   ![EC2 Instance](img/aws-console-ec2.png)
 
-2. Configuration of the instance
+**2. Configuration of the instance**
    
   - **Name**: Enter instance name `de-project-airflow-ml-pipeline-968807950973`
-  - **AMI**: Select an Amazon Linux AMI compatible with the desired setup
-  - **Instance Type**: Choose a type with sufficient CPU and memory, such as `t2.medium`.
-    > For this project, free tiered `t2.micro` will be used.
-  - **Key Pair**: Under Advanced details, create a key pair for SSH access. Save the `.pem file` in project folder.
+    
+  - **AMI**: Amazon Linux AMI
+    
+  - **Instance Type**: Choose t2.micro for free-tier eligibility, suitable for this project. For larger-scale operations, consider t2.medium for additional resources.
+    
+    ![Instance Type](img/instance-type.png)
+    
+  - **Key Pair**: Create a key pair for SSH access under Advanced details, saving the `.pem` file securely in the project folder.
+    
+    ![Instance Type](img/iam-instance-profile.png)
+    
+**3. Configure security groups**
 
-3. Configure security groups
+  - Click on the identifier under **Security groups** in the **Security** tab of the EC2 instance.
 
-   - Go to EC2 instance, click on the identifier of **Security groups** under the **Security** tab.
-   - Click on **Edit inbound rules** and **add rules** to allow enable port 8080 for accessing the Apache Airflow Web Server.
+     ![Security Groups](img/security-groups.png)
+     
+  - Select **Edit inbound rules** and add rules to allow inbound traffic for port 8080, enabling access to the Apache Airflow Web Server interface.
+  
+     ![Inbound Rules](img/inbound-rules.png)
 
-**Apache Airflow Web Server**
+#### Apache Airflow Web Server
 
+Next, Apache Airflow was installed and configured on the EC2 instance to manage the data pipelines. 
+The following steps were performed:
 
+**1. SSH into the EC2 instance**
 
-**Create S3 buckets**
+```bash
+ssh -i <key-pair.pem> ec2-user@<public-ip-address>
+```
+
+**2. Install and configure all necessary dependencies, Apache Airflow, and Great Expectations on EC2 instance**
+
+```bash
+sudo yum update -y
+sudo yum install python3-pip -y
+
+pip install apache-airflow
+pip install great_expectations
+
+# Install Airflow Provider for Great Expectations
+pip install airflow-provider-great-expectations==0.1.1
+```
+
+**3. Initialize and Configure Apache Airflow**
+
+```bash
+# Initialize and start the Airflow webserver on port 8080
+airflow db init
+airflow webserver -p 8080
+
+# Create an admin user for Airflow
+airflow users create -u admin -p admin -r Admin -e admin@example.com -f Admin -l User
+```
+
+**4. Access the Airflow Web Server via the public IP address**
+   
+  - Copy and paste the `Public IPv4 DNS` into a broswer tab and add :8080 at the end to access the Airflow UI.
+  - Login with username and password.
+
+   ![Airflow UI](img/airflow-ui.png)
+
+#### Create S3 Buckets
+
+Finally, S3 buckets were created to store and manage data files and DAGs required by Apache Airflow. 
+The setup process involved:
+
+**1. Navigate to the **S3** service and click Create Bucket**
+   
+  - A **Raw Data Bucket** `de-project-airflow-ml-raw-968807950973` to store input files for data processing pipelines.
+  - A **DAGs Bucket** `de-project-airflow-ml-dags-968807950973` to host DAG scripts for Airflow.
+
+  ![S3 Buckets](img/s3-buckets.png)
+
+**2. Configure bucket permissions**
+
+  - Grant access to the EC2 instance and required AWS roles.
 
 ---
 
@@ -72,7 +135,7 @@ To store the data in the Raw Data Bucket, the following commands were executed:
 
 ```bash
 cd data
-aws s3 sync work_zone s3://<RAW-DATA-BUCKET>/work_zone/
+aws s3 sync work_zone s3://de-project-airflow-ml-raw-968807950973/work_zone/
 cd ..
 ```
 
@@ -143,6 +206,11 @@ data_quality_task = GreatExpectationsOperator(
 
 This operator ensures that the validation checks are performed efficiently and integrates seamlessly into the Airflow DAG. 
 If the validation fails, the pipeline stops, preventing the training of models on invalid data.
+
+Next, a variable for `bucket_name` was created from the Airflow UI.
+This variable allows the DAG to dynamically reference the raw data bucket without hardcoding its name.
+
+![Variable](img/airflow-variable.png)
 
 #### Training and Evaluating the ML Model
 
@@ -370,20 +438,29 @@ python3 ./generate_dags.py
 
 As a result, three DAG files were generated in the `src/dags/` folder, one for each vendor
 
-#insert_image
+![DAGS Folder](dags-folder.png)
 
 ---
 
 ### 6. Running the DAGs with Airflow
 
-To deploy the dynamically generated DAGs, the src/dags folder was synchronized with the DAGs Bucket using:
+To deploy the dynamically generated DAGs
 
-```bash
-cd ../..
-aws s3 sync src/dags s3://<DAGS-BUCKET>/dags
-```
+- The src/dags folder was synchronized with the DAGs Bucket.
 
-After the DAGs were copied to the bucket, all three DAGs will be listed in the Airflow UI. Toggle the DAGs to executed it. 
+   ```bash
+   cd ../..
+   aws s3 sync src/dags s3://de-project-airflow-ml-dags-968807950973/dags
+   ```
+
+- Next, the DAGs Bucket was synchronized with the `dags_folder` of the instance.
+
+   ```bash
+   cd ../..
+   aws s3 sync s3://de-project-airflow-ml-dags-968807950973/dags /home/ec2-user/airflow/dags
+   ```
+   
+After the DAGs were copied to the `dags_folder`, all three DAGs will be listed in the Airflow UI. Toggle the DAGs to executed it. 
 
 #insert_image of Airflow UI with the three DAGs
 
