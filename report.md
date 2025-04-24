@@ -20,9 +20,33 @@ Descriptions of the tasks that constitute the DAG:
 
 ### 2. Setting Up Airflow's Components
 
-**Launch EC2 instance**
+This section details the essential steps to prepare the environment for running Apache Airflow. 
+The setup includes launching an EC2 instance, creating S3 buckets, and configuring the Apache Airflow Web Server.
+
+**EC2 instance**
+
+EC2 instance was launched using the AWS Management Console with the following steps:
+
+1. Navigate to the AWS Management Console EC2 service and choose **Launch Instance**
+
+   #insert_image
+
+2. Configuration of the instance
+   
+  - **Name**: Enter instance name `de-project-airflow-ml-pipeline-968807950973`
+  - **AMI**: Select an Amazon Linux AMI compatible with the desired setup
+  - **Instance Type**: Choose a type with sufficient CPU and memory, such as `t2.medium`.
+    > For this project, free tiered `t2.micro` will be used.
+  - **Key Pair**: Under Advanced details, create a key pair for SSH access. Save the `.pem file` in project folder.
+
+3. Configure security groups
+
+   - Go to EC2 instance, click on the identifier of **Security groups** under the **Security** tab.
+   - Click on **Edit inbound rules** and **add rules** to allow enable port 8080 for accessing the Apache Airflow Web Server.
 
 **Apache Airflow Web Server**
+
+
 
 **Create S3 buckets**
 
