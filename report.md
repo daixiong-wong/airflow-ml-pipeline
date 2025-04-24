@@ -438,7 +438,7 @@ python3 ./generate_dags.py
 
 As a result, three DAG files were generated in the `src/dags/` folder, one for each vendor
 
-![DAGS Folder](dags-folder.png)
+![DAGS Folder](img/dags-folder.png)
 
 ---
 
