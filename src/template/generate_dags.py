@@ -1,20 +1,11 @@
-import json  # To read the JSON config file
-import re  # To look for templated variables
-from pathlib import Path  # To handle paths
+import json
+from pathlib import Path 
 import os
 
-# Render the template
-from jinja2 import (
-    StrictUndefined,
-    Template,
-    UndefinedError,
-)
+from jinja2 import Template
 
 def main():
-    """Generates dag files based on the template.
 
-    How to run the script: python generate_dags.py"""
-    # Load the template
     with open("./template.py", "r", encoding="utf-8") as file:
         unsafe_template_str = file.read()
 
@@ -23,45 +14,19 @@ def main():
     
     dags_dir = "./../dags"
     
-    if not os.path.exists(dags_dir):
-        os.mkdir(dags_dir)
-    else:
-        print(f"The directory {dags_dir} already exists.")
-    
-    # For each JSON path that matches the pattern "config_*.json"
     for path_config in folder_configs.glob("config_*.json"):
-        # Read configuration
         with open(path_config, "r", encoding="utf-8") as file:
             config = json.load(file)
 
-        # Adds placeholders to avoid trying to replace Jinja expressions not 
-        # defined in config files.
         template_str = protect_undefineds(unsafe_template_str, config)
         
-        # Output filename
-        filename = f"./../dags/{config['dag_name']}.py"
-        
-        # Replace the template_str with the config dictionary
+        filename = f"{dags_dir}/{config['dag_name']}.py"
+
         content = Template(template_str).render(config)
         
-        # Write the file
         with open(filename, mode="w", encoding="utf-8") as file:
             file.write(content)
             print(f"Created {filename} from config: {path_config.name}...")
-        
-
-def protect_undefineds(template_str: str, config: dict):
-
-    pattern = re.compile(r"(\{\{[^\{]*\}\})")
-    for j2_expression in set(pattern.findall(template_str)):
-        try:
-            Template(j2_expression, undefined=StrictUndefined).render(config)
-        except UndefinedError:
-            template_str = template_str.replace(
-                j2_expression, f"{{% raw %}}{j2_expression}{{% endraw %}}"
-            )
-    return template_str
-
 
 if __name__ == "__main__":
     main()
