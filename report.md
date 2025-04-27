@@ -37,23 +37,27 @@ EC2 instance was launched using the AWS Management Console with the following st
     
   - **AMI**: Amazon Linux AMI
     
-  - **Instance Type**: Choose t2.micro for free-tier eligibility, suitable for this project. For larger-scale operations, consider t2.medium for additional resources.
+  - **Instance Type**: Choose t2.medium which is suitable for small-scale workflows with lightweight DAGs and minimal concurrent tasks for this project.
     
-    ![Instance Type](img/instance-type.png)
+   ![Instance Type](img/instance-type.png)
     
-  - **Key Pair**: Create a key pair for SSH access under Advanced details, saving the `.pem` file securely in the project folder.
+  - **Key Pair**: Create a key pair for SSH access and save the `.pem` file securely in the project folder.
     
-    ![Instance Type](img/iam-instance-profile.png)
+   ![Key Pair](img/key-pair.png)
+
+  - **IAM instance profile**: Attach the IAM role which gives access to the S3 buckets.
+
+   ![IAM](img/iam.png)
     
 **3. Configure security groups**
 
   - Click on the identifier under **Security groups** in the **Security** tab of the EC2 instance.
 
-     ![Security Groups](img/security-groups.png)
+   <img src="img/security-groups.png" alt="Security Groups" width="800"/>
      
   - Select **Edit inbound rules** and add rules to allow inbound traffic for port 8080, enabling access to the Apache Airflow Web Server interface.
   
-     ![Inbound Rules](img/inbound-rules.png)
+   ![Inbound Rules](img/inbound-rules.png)
 
 #### Apache Airflow Web Server
 
@@ -111,8 +115,23 @@ The setup process involved:
 
 **2. Configure bucket permissions**
 
-  - Grant access to the EC2 instance and required AWS roles.
-
+  - The following bucket policy was used to allow the EC2 instance access to the bucket:
+  
+   ```bash
+   {
+       "Version": "2012-10-17",
+       "Statement": [
+           {
+               "Effect": "Allow",
+               "Principal": {
+                   "AWS": "arn:aws:iam::968807950973:role/EC2-S3-access-role"
+               },
+               "Action": "s3:*",
+               "Resource": "arn:aws:s3:::de-project-airflow-ml-dags-968807950973/*"
+           }
+       ]
+   }
+   ```
 ---
 
 ### 3. Preprocessing the Data
@@ -210,7 +229,7 @@ If the validation fails, the pipeline stops, preventing the training of models o
 Next, a variable for `bucket_name` was created from the Airflow UI.
 This variable allows the DAG to dynamically reference the raw data bucket without hardcoding its name.
 
-![Variable](img/airflow-variable.png)
+<img src="img/airflow-variable.png" alt="Variable" width="700"/>
 
 #### Training and Evaluating the ML Model
 
@@ -448,23 +467,29 @@ To deploy the dynamically generated DAGs
 
 - The src/dags folder was synchronized with the DAGs Bucket.
 
-   ```bash
-   cd ../..
-   aws s3 sync src/dags s3://de-project-airflow-ml-dags-968807950973/dags
-   ```
+ ```bash
+ cd ../..
+ aws s3 sync src/dags s3://de-project-airflow-ml-dags-968807950973/dags
+ ```
 
 - Next, the DAGs Bucket was synchronized with the `dags_folder` of the instance.
 
-   ```bash
-   cd ../..
-   aws s3 sync s3://de-project-airflow-ml-dags-968807950973/dags /home/ec2-user/airflow/dags
-   ```
+ ```bash
+ cd ../..
+ aws s3 sync s3://de-project-airflow-ml-dags-968807950973/dags /home/ec2-user/airflow/dags
+ ```
    
 After the DAGs were copied to the `dags_folder`, all three DAGs will be listed in the Airflow UI. Toggle the DAGs to executed it. 
 
-#insert_image of Airflow UI with the three DAGs
+![Airflow DAGS](img/airflow-dags.png)
 
 The results were as follows:
+
+<div style="display: flex; justify-content: space-around;">
+   <img src="img/alitran.png" alt="Alitran" width="330"/>
+   <img src="img/easy_destiny.png" alt="Easy Destiny" width="330"/>
+   <img src="img/to_my_place_ai.png" alt="To My Place AI" width="330"/>
+</div>
 
 - **model_trip_duration_alitran**: This DAG notified that the model was not deployed due to unsatisfactory performance.
 - **model_trip_duration_easy_destiny**: Successfully deployed the model as it met the performance criteria.
@@ -473,9 +498,7 @@ The results were as follows:
 > Note: Run the DAGs sequentially to ensure smooth execution.
 > This minimizes potential retries in the Great Expectations task, which requires access to documentation files and can experience conflicts when multiple DAGs attempt to access them concurrently.
 
-#insert_image Include a snippet showing the Airflow UI with the DAGs toggled and their statuses.
-
-The DAG model_trip_duration_to_my_place_ai was anticipated to "fail successfully," as the data did not meet the validation requirements during the quality check process. 
+The DAG **model_trip_duration_to_my_place_ai** was anticipated to "fail successfully," as the data did not meet the validation requirements during the quality check process. 
 This design demonstrated the robustness of the pipeline in handling invalid data appropriately.
 
 ---
